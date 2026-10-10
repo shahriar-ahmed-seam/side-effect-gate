@@ -10,12 +10,12 @@ class SideGateError(Exception):
 class IrreversibleActionBlockedError(SideGateError):
     """Raised when an irreversible Tier-3 action is intercepted and blocked by the runtime gate."""
 
-    def __init__(self, action_id: str, reason: str, layer: str = "HARNESS") -> None:
+    def __init__(self, action_id: str, reason: str = "", layer: str = "HARNESS") -> None:
         self.action_id = action_id
-        self.reason = reason
+        self.reason = reason or "Irreversible Tier-3 commit action blocked"
         self.layer = layer
         super().__init__(
-            f"Action '{action_id}' BLOCKED at {layer} layer: {reason}"
+            f"Action '{action_id}' BLOCKED at {layer} layer: {self.reason}"
         )
 
 

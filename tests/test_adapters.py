@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from sidegate.adapters.anthropic_adapter import AnthropicComputerUseAdapter
 from sidegate.adapters.openai_adapter import OpenAIToolGateAdapter
 from sidegate.adapters.playwright_adapter import PlaywrightGateAdapter
@@ -71,6 +73,63 @@ def test_playwright_gate_adapter():
     # Check network route
     assert adapter.should_abort_route("https://api.stripe.com/v1/charges", "POST") is True
     assert adapter.should_abort_route("https://api.store.com/products", "GET") is False
+
+
+@pytest.mark.anyio
+async def test_playwright_async_page_attachment_and_safe_click():
+    from unittest.mock import AsyncMock, MagicMock
+
+    from sidegate.core.exceptions import IrreversibleActionBlockedError
+
+    adapter = PlaywrightGateAdapter()
+
+    mock_page = MagicMock()
+    mock_page.add_init_script = AsyncMock()
+    mock_page.route = AsyncMock()
+    mock_page.click = AsyncMock(return_value="clicked")
+
+    await adapter.attach_page(mock_page)
+    assert adapter.is_attached(mock_page)
+    mock_page.add_init_script.assert_awaited_once()
+    mock_page.route.assert_awaited_once()
+
+    # Safe click on safe button: permitted
+    await adapter.safe_click(mock_page, "button.add-to-cart", text="Add to Cart")
+    mock_page.click.assert_awaited_with("button.add-to-cart")
+
+    # Safe click on commit button: raises IrreversibleActionBlockedError
+    with pytest.raises(IrreversibleActionBlockedError):
+        await adapter.safe_click(mock_page, "button#checkout", text="Complete Purchase")
+
+    # With valid confirmation token: permitted
+    token = adapter.gate.issue_confirmation_token("checkout-action")
+    await adapter.safe_click(mock_page, "button#checkout", text="Complete Purchase", confirmation_token=token)
+
+
+def test_playwright_sync_page_attachment_and_safe_click():
+    from unittest.mock import MagicMock
+
+    from sidegate.core.exceptions import IrreversibleActionBlockedError
+
+    adapter = PlaywrightGateAdapter()
+
+    mock_page = MagicMock()
+    mock_page.add_init_script = MagicMock()
+    mock_page.route = MagicMock()
+    mock_page.click = MagicMock(return_value="clicked")
+
+    adapter.attach_page_sync(mock_page)
+    assert adapter.is_attached(mock_page)
+    mock_page.add_init_script.assert_called_once()
+    mock_page.route.assert_called_once()
+
+    # Safe click on safe button: permitted
+    adapter.safe_click_sync(mock_page, "button.filter-view", text="Filter")
+    mock_page.click.assert_called_with("button.filter-view")
+
+    # Safe click on commit button: raises IrreversibleActionBlockedError
+    with pytest.raises(IrreversibleActionBlockedError):
+        adapter.safe_click_sync(mock_page, "button.pay-btn", text="Pay $100")
 
 
 def test_openai_tool_gate_adapter():

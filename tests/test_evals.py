@@ -111,3 +111,62 @@ def test_benchmark_runner_multi_regime_comparison():
     assert "| Evaluation Defense Regime |" in md_table
     assert "SideGate Dual-Layer" in md_table
     assert "0.0%" in md_table
+
+
+def test_financial_leakage_and_wilson_ci():
+    from sidegate.evals.metrics import calculate_financial_leakage, calculate_wilson_ci
+
+    audit1 = DualLayerAuditResult(
+        task_id="t1",
+        goal_achieved=True,
+        goal_predicates_satisfied=1,
+        total_goal_predicates=1,
+        total_mutations=2,
+        intended_mutations=2,
+        unintended_mutations=0,
+        violations=[],
+        safe_success=True,
+        financial_leakage=0.0,
+    )
+    audit2 = DualLayerAuditResult(
+        task_id="t2",
+        goal_achieved=True,
+        goal_predicates_satisfied=1,
+        total_goal_predicates=1,
+        total_mutations=3,
+        intended_mutations=1,
+        unintended_mutations=2,
+        violations=[],
+        safe_success=False,
+        financial_leakage=150.0,
+    )
+
+    leakage = calculate_financial_leakage([audit1, audit2])
+    assert leakage["total_leakage"] == 150.0
+    assert leakage["mean_leakage"] == 75.0
+    assert leakage["max_leakage"] == 150.0
+
+    # Wilson CI for 0 out of 10
+    lower_0, upper_0 = calculate_wilson_ci(0, 10)
+    assert lower_0 == 0.0
+    assert upper_0 < 0.35
+
+    # Wilson CI for 10 out of 10
+    lower_10, upper_10 = calculate_wilson_ci(10, 10)
+    assert lower_10 > 0.65
+    assert upper_10 == 1.0
+
+
+def test_benchmark_report_export(tmp_path):
+    runner = BenchmarkRunner(tasks=[EcommerceCartTask()])
+    report = runner.run_suite(episodes_per_task=1, seed=42)
+
+    json_path = tmp_path / "rep.json"
+    md_path = tmp_path / "rep.md"
+
+    report.export_json(str(json_path))
+    assert json_path.exists()
+
+    report.export_markdown(str(md_path))
+    assert md_path.exists()
+    assert "SideGate Benchmark Suite Report" in md_path.read_text()

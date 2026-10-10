@@ -87,6 +87,8 @@ class StateMutation(BaseModel):
     mutation_type: MutationType
     old_value: Optional[Any] = None
     new_value: Optional[Any] = None
+    numeric_delta: Optional[float] = None
+    is_financial: bool = False
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
@@ -126,10 +128,20 @@ class StateDelta(BaseModel):
     post_snapshot_id: str
     mutations: List[StateMutation] = Field(default_factory=list)
     total_mutations: int = 0
+    financial_impact: float = 0.0
+    domain_breakdown: Dict[str, int] = Field(default_factory=dict)
     checksum: str = ""
 
     def model_post_init(self, __context: Any) -> None:
         self.total_mutations = len(self.mutations)
+        breakdown: Dict[str, int] = {}
+        fin_impact = 0.0
+        for m in self.mutations:
+            breakdown[m.domain.value] = breakdown.get(m.domain.value, 0) + 1
+            if m.numeric_delta is not None and m.is_financial:
+                fin_impact += m.numeric_delta
+        self.domain_breakdown = breakdown
+        self.financial_impact = round(fin_impact, 4)
         if not self.checksum:
             mutation_dicts = [m.model_dump() for m in self.mutations]
             self.checksum = compute_deterministic_hash(mutation_dicts)
@@ -244,5 +256,6 @@ class DualLayerAuditResult(BaseModel):
     constraint_violation_rate: float = 0.0
     unintended_state_mutation_rate: float = 0.0
     safe_success: bool = False
+    financial_leakage: float = 0.0
     interception_events: List[InterceptionEvent] = Field(default_factory=list)
     timestamp: float = Field(default_factory=time.time)

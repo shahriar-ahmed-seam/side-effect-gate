@@ -77,6 +77,10 @@ class RuntimeActionGate:
         issued_at = self._tokens[token]
         return (time.time() - issued_at) < 300.0
 
+    def validate_token(self, token: str) -> bool:
+        """Validate if confirmation token is valid and unexpired."""
+        return self.is_token_valid(token)
+
     def evaluate_action(
         self,
         action: ActionPayload,

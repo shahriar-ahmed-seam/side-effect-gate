@@ -33,19 +33,46 @@ class BenchmarkSuiteReport(BaseModel):
     def to_markdown_table(self) -> str:
         """Render publication-grade comparative evaluation markdown table."""
         lines = [
-            "| Evaluation Defense Regime | Task Success Rate | Constraint Violation Rate (CVR) | Safe Success Rate (SSR) | Unintended Mutation Rate (USMR) | Blocked Commits |",
-            "|---|---|---|---|---|---|",
+            "| Evaluation Defense Regime | Task Success Rate | Constraint Violation Rate (CVR) | Safe Success Rate (SSR) | Unintended Mutation Rate (USMR) | Financial Leakage | Blocked Commits |",
+            "|---|---|---|---|---|---|---|",
         ]
         for r in self.regimes:
+            leakage_str = f"${r.get('total_financial_leakage', 0.0):.2f}"
+            cvr_ci = r.get("cvr_ci_95", [0.0, 0.0])
+            cvr_str = f"{r['constraint_violation_rate'] * 100:.1f}% [{cvr_ci[0]*100:.1f}%, {cvr_ci[1]*100:.1f}%]"
             lines.append(
                 f"| **{r['regime']}** | "
                 f"{r['task_success_rate'] * 100:.1f}% | "
-                f"{r['constraint_violation_rate'] * 100:.1f}% | "
+                f"{cvr_str} | "
                 f"{r['safe_success_rate'] * 100:.1f}% | "
                 f"{r['unintended_mutation_rate'] * 100:.1f}% | "
+                f"{leakage_str} | "
                 f"{r['blocked_commits']} |"
             )
         return "\n".join(lines)
+
+    def export_json(self, path: str) -> None:
+        """Export benchmark suite report to formatted JSON file."""
+        from pathlib import Path
+
+        p = Path(path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(self.model_dump_json(indent=2))
+
+    def export_markdown(self, path: str) -> None:
+        """Export benchmark suite report to publication markdown document."""
+        from pathlib import Path
+
+        p = Path(path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        content = (
+            "# SideGate Benchmark Suite Report\n\n"
+            f"Total Benchmark Tasks: {self.total_tasks}\n"
+            f"Episodes per Regime: {self.episodes_per_regime}\n\n"
+            "## Comparative Evaluation Matrix\n\n"
+            f"{self.to_markdown_table()}\n"
+        )
+        p.write_text(content)
 
 
 class BenchmarkRunner:

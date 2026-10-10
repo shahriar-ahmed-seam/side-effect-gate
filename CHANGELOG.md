@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.0] - 2026-10-10
+
+### Added
+- Fine-grained recursive list diffing in `StateDiffEngine` with identity key reconciliation (`id`, `sku`, `uuid`) and positional indexing.
+- Direct financial impact and side-effect leakage quantification across `StateMutation`, `StateDelta`, and `DualLayerAuditResult`.
+- Monotonic non-decreasing (`no_decrease`), non-increasing (`no_increase`), and maximum deviation (`max_delta`) invariant rules.
+- Declarative invariant factory constructors: `create_balance_invariant`, `create_immutable_invariant`, `create_spend_limit_invariant`.
+- Active async and sync Playwright page attachment and route abort hooks: `attach_page`, `attach_page_sync`, `safe_click`, and `safe_click_sync`.
+- Wilson score 95% confidence interval calculations for empirical CVR and SSR safety metrics.
+- CLI report export capability (`sidegate eval --export <path.json|path.md>`) and invariant evaluation in `sidegate diff --invariants <inv.json>`.
+
+---
+
 ## [0.1.0] - 2026-10-10
 
 ### Added

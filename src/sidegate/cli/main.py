@@ -63,6 +63,7 @@ def eval_cmd(
     episodes: int = typer.Option(3, "--episodes", "-n", help="Episodes per task scenario"),
     seed: int = typer.Option(42, "--seed", "-s", help="Random seed for reproducibility"),
     markdown: bool = typer.Option(False, "--markdown", "-m", help="Output as Markdown table"),
+    export: Optional[Path] = typer.Option(None, "--export", "-e", help="Path to export report (.json or .md)"),
 ) -> None:
     """Run comprehensive benchmark suite comparing baseline, prompt-only, outcome-only, and SideGate regimes."""
     console.print(
@@ -72,6 +73,13 @@ def eval_cmd(
     tasks = get_standard_benchmark_suite()
     runner = BenchmarkRunner(tasks=tasks)
     report = runner.run_suite(episodes_per_task=episodes, seed=seed)
+
+    if export:
+        if export.suffix == ".json":
+            report.export_json(str(export))
+        else:
+            report.export_markdown(str(export))
+        console.print(f"[bold green]Report exported successfully to:[/bold green] {export}\n")
 
     if markdown:
         console.print(report.to_markdown_table())
@@ -87,16 +95,19 @@ def eval_cmd(
     table.add_column("CVR", justify="right", style="bold red")
     table.add_column("Safe SSR", justify="right", style="bold green")
     table.add_column("USMR", justify="right", style="yellow")
+    table.add_column("Financial Leakage", justify="right", style="bold magenta")
     table.add_column("Blocked Commits", justify="right")
 
     for r in report.regimes:
         cvr_color = "green" if r["constraint_violation_rate"] == 0.0 else "red"
+        leakage = r.get("total_financial_leakage", 0.0)
         table.add_row(
             r["regime"],
             f"{r['task_success_rate'] * 100:.1f}%",
             f"[{cvr_color}]{r['constraint_violation_rate'] * 100:.1f}%[/{cvr_color}]",
             f"{r['safe_success_rate'] * 100:.1f}%",
             f"{r['unintended_mutation_rate'] * 100:.1f}%",
+            f"${leakage:.2f}",
             str(r["blocked_commits"]),
         )
 
@@ -191,6 +202,7 @@ def run_cmd(
 def diff_cmd(
     pre_file: Path = typer.Argument(..., help="Path to pre-state JSON snapshot"),
     post_file: Path = typer.Argument(..., help="Path to post-state JSON snapshot"),
+    invariants_file: Optional[Path] = typer.Option(None, "--invariants", "-i", help="Path to invariants JSON file"),
 ) -> None:
     """Compute and display deep structural delta between two JSON snapshot files."""
     if not pre_file.exists() or not post_file.exists():
@@ -211,18 +223,49 @@ def diff_cmd(
     table.add_column("State Path", style="bold white")
     table.add_column("Old Value", style="red")
     table.add_column("New Value", style="green")
+    table.add_column("Delta", justify="right", style="magenta")
 
     for m in delta.mutations:
+        delta_str = f"{m.numeric_delta:+.2f}" if m.numeric_delta is not None else "-"
         table.add_row(
             m.domain.value,
             m.mutation_type.value,
             m.path,
             str(m.old_value) if m.old_value is not None else "[dim]null[/dim]",
             str(m.new_value) if m.new_value is not None else "[dim]null[/dim]",
+            delta_str,
         )
 
     console.print(table)
-    console.print(f"[dim]Total Mutations: {delta.total_mutations} | Checksum: {delta.checksum[:16]}...[/dim]")
+    console.print(
+        f"[dim]Total Mutations: {delta.total_mutations} | "
+        f"Financial Impact: ${delta.financial_impact:.2f} | "
+        f"Checksum: {delta.checksum[:16]}...[/dim]\n"
+    )
+
+    if invariants_file and invariants_file.exists():
+        from sidegate.core.models import Invariant
+        inv_raw = json.loads(invariants_file.read_text())
+        normalized_invs = []
+        for item in inv_raw:
+            if "severity" in item and isinstance(item["severity"], str):
+                item["severity"] = item["severity"].lower()
+            if "domain" in item and isinstance(item["domain"], str):
+                item["domain"] = item["domain"].lower()
+            normalized_invs.append(Invariant(**item))
+        evaluator = InvariantEvaluator(normalized_invs)
+        violations = evaluator.evaluate(delta, post_snap)
+
+        if violations:
+            v_table = Table(title="Detected Invariant Violations", box=box.ROUNDED)
+            v_table.add_column("Severity", style="bold red")
+            v_table.add_column("Invariant Name", style="white")
+            v_table.add_column("Description", style="dim")
+            for v in violations:
+                v_table.add_row(v.severity.value, v.invariant_name, v.description)
+            console.print(v_table)
+        else:
+            console.print("[bold green]Zero Invariant Violations Detected (State Integrity Intact)[/bold green]")
 
 
 @app.command("serve")

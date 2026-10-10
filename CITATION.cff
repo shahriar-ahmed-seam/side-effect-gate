@@ -1,7 +1,7 @@
 cff-version: 1.2.0
 message: "If you use SideGate in your research or production systems, please cite it as below."
 title: "SideGate: Dual-Layer State-Diff Verification & Multi-Tier Irreversible Action Gating Engine for Computer-Use Agents"
-version: 0.1.0
+version: 0.2.0
 date-released: 2026-10-10
 authors:
   - family-names: Seam
