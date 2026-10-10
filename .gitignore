@@ -1,0 +1,23 @@
+# Python & Bytecode
+__pycache__/
+*.py[cod]
+.venv/
+dist/
+build/
+*.egg-info/
+
+# Testing & Linting
+.pytest_cache/
+.ruff_cache/
+.coverage
+.mypy_cache/
+
+# Local Output Data
+eval_reports/
+augmented_data/
+exported_sft/
+snapshots/
+
+# Agent configuration & meta folders
+.agents/
+.github/
