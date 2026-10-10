@@ -9,8 +9,10 @@ from typing import List, Optional
 from sidegate.core.models import (
     ConstraintViolation,
     Invariant,
+    InvariantSeverity,
     MutationType,
     StateDelta,
+    StateDomain,
     StateMutation,
     StateSnapshot,
 )
@@ -52,10 +54,16 @@ class InvariantEvaluator:
             return True
         if fnmatch.fnmatch(actual_path, target_pattern):
             return True
+        # Match parent array target against indexed child path (e.g. 'db.cart.items' vs 'db.cart.items[0]')
+        if actual_path.startswith(f"{target_pattern}[") or actual_path.startswith(f"{target_pattern}."):
+            return True
         # Also check without leading domain prefix (e.g. 'db.users' vs 'users')
         parts = actual_path.split(".", 1)
-        if len(parts) > 1 and fnmatch.fnmatch(parts[1], target_pattern):
-            return True
+        if len(parts) > 1:
+            if fnmatch.fnmatch(parts[1], target_pattern):
+                return True
+            if parts[1].startswith(f"{target_pattern}[") or parts[1].startswith(f"{target_pattern}."):
+                return True
         return False
 
     def _check_rule(self, inv: Invariant, mutation: StateMutation) -> Optional[ConstraintViolation]:
@@ -119,8 +127,8 @@ class InvariantEvaluator:
                         detected_mutation=mutation,
                     )
 
-        # Rule 5: Pattern Match
-        if rule == "pattern_match" and inv.constraint_param is not None:
+        # Rule 5: Pattern Match / Regex Match
+        if rule in ("pattern_match", "regex_match") and inv.constraint_param is not None:
             if isinstance(mutation.new_value, str):
                 if not re.search(str(inv.constraint_param), mutation.new_value):
                     return ConstraintViolation(
@@ -150,4 +158,105 @@ class InvariantEvaluator:
                     detected_mutation=mutation,
                 )
 
+        # Rule 7: No Decrease (monotonic non-decreasing)
+        if rule == "no_decrease":
+            if mutation.numeric_delta is not None and mutation.numeric_delta < 0:
+                return ConstraintViolation(
+                    invariant_id=inv.invariant_id,
+                    invariant_name=inv.name,
+                    domain=inv.domain,
+                    severity=inv.severity,
+                    description=(
+                        f"Value on '{mutation.path}' decreased by {abs(mutation.numeric_delta)} "
+                        f"({mutation.old_value} -> {mutation.new_value})"
+                    ),
+                    detected_mutation=mutation,
+                )
+
+        # Rule 8: No Increase (monotonic non-increasing)
+        if rule == "no_increase":
+            if mutation.numeric_delta is not None and mutation.numeric_delta > 0:
+                return ConstraintViolation(
+                    invariant_id=inv.invariant_id,
+                    invariant_name=inv.name,
+                    domain=inv.domain,
+                    severity=inv.severity,
+                    description=(
+                        f"Value on '{mutation.path}' increased by {mutation.numeric_delta} "
+                        f"({mutation.old_value} -> {mutation.new_value})"
+                    ),
+                    detected_mutation=mutation,
+                )
+
+        # Rule 9: Max Delta (absolute change threshold)
+        if rule == "max_delta" and inv.constraint_param is not None:
+            if mutation.numeric_delta is not None and abs(mutation.numeric_delta) > float(inv.constraint_param):
+                return ConstraintViolation(
+                    invariant_id=inv.invariant_id,
+                    invariant_name=inv.name,
+                    domain=inv.domain,
+                    severity=inv.severity,
+                    description=(
+                        f"Absolute change of {abs(mutation.numeric_delta)} on '{mutation.path}' "
+                        f"exceeded maximum delta threshold {inv.constraint_param}"
+                    ),
+                    detected_mutation=mutation,
+                )
+
         return None
+
+
+def create_balance_invariant(
+    target_path: str = "db.account.balance",
+    min_balance: float = 0.0,
+    name: str = "preserve_account_balance",
+) -> Invariant:
+    """Helper factory for financial balance preservation constraints."""
+    from sidegate.core.models import InvariantSeverity, StateDomain
+
+    return Invariant(
+        name=name,
+        description=f"Account balance must not drop below {min_balance}",
+        domain=StateDomain.DATABASE,
+        target_path=target_path,
+        rule_type="min_value",
+        constraint_param=min_balance,
+        severity=InvariantSeverity.CRITICAL,
+    )
+
+
+def create_immutable_invariant(
+    domain: StateDomain,
+    target_path: str,
+    name: Optional[str] = None,
+    severity: InvariantSeverity = InvariantSeverity.CRITICAL,
+) -> Invariant:
+    """Helper factory for immutability constraints."""
+    inv_name = name or f"immutable_{target_path.replace('.', '_')}"
+    return Invariant(
+        name=inv_name,
+        description=f"Target path {target_path} is strictly immutable",
+        domain=domain,
+        target_path=target_path,
+        rule_type="immutable",
+        severity=severity,
+    )
+
+
+def create_spend_limit_invariant(
+    target_path: str = "db.account.balance",
+    max_spend: float = 0.0,
+    name: str = "monetary_spend_limit",
+) -> Invariant:
+    """Helper factory ensuring spent funds do not exceed a strict threshold."""
+    from sidegate.core.models import InvariantSeverity, StateDomain
+
+    return Invariant(
+        name=name,
+        description=f"Permitted expenditure cannot exceed {max_spend}",
+        domain=StateDomain.DATABASE,
+        target_path=target_path,
+        rule_type="max_delta" if max_spend > 0 else "no_decrease",
+        constraint_param=max_spend if max_spend > 0 else None,
+        severity=InvariantSeverity.CRITICAL,
+    )

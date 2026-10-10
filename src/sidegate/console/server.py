@@ -10,6 +10,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
+from sidegate import __version__
 from sidegate.core.models import (
     ActionCategory,
     ActionPayload,
@@ -80,7 +81,7 @@ def create_app() -> FastAPI:
     """Instantiate and configure FastAPI application."""
     api = FastAPI(
         title="SideGate Telemetry Console",
-        version="0.1.0",
+        version=__version__,
         description="Dual-Layer State-Diff Verification and Multi-Tier Irreversible Action Gating Engine",
     )
 
@@ -95,7 +96,7 @@ def create_app() -> FastAPI:
     async def get_status() -> Dict[str, Any]:
         return {
             "status": "ARMED",
-            "version": "0.1.0",
+            "version": __version__,
             "defense_mode": gate_engine.policy.mode,
             "layers": ["HARNESS", "DOM", "NETWORK"],
             "block_tier3": gate_engine.policy.block_tier3,

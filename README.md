@@ -83,10 +83,11 @@ flowchart TD
   - *Harness Layer*: Intercepts tool calls, shell commands, and execution loops before dispatch.
   - *DOM / UI Layer*: Injects capture-phase browser listeners to block commit buttons (`checkout`, `pay now`, `complete purchase`, `wire transfer`) before DOM dispatch.
   - *Network Layer*: Filters outbound HTTP requests to abort destructive mutations on payment gateways (Stripe, PayPal, banking transfers).
-- **Deep Structural State-Diff Engine**: Recursively calculates atomic mutations across DOM, Database, Filesystem, and Network domains with deterministic SHA-256 fingerprinting.
-- **Formal Invariant Evaluator**: Enforces declarative safety constraints (`immutable`, `no_delete`, `min_value`, `max_value`, `pattern_match`, `allowed_values`).
-- **Mathematical Safety Metrics**: Measures empirical **Constraint-Violation Rate (CVR)**, **Safe Success Rate (SSR)**, and **Unintended State Mutation Rate (USMR)**.
-- **Drop-in Ecosystem Adapters**: Native wrappers for Anthropic Computer Use, Playwright, and OpenAI tool calling.
+- **Deep Structural State-Diff Engine**: Recursively calculates atomic mutations across DOM, Database, Filesystem, and Network domains with identity-key reconciliation, positional list indexing, and deterministic SHA-256 fingerprinting.
+- **Financial Side-Effect Leakage Quantification**: Directly measures exact monetary loss ($) and numeric resource impact caused by unintended collateral actions ("Late verification misses spent money").
+- **Formal Invariant Evaluator**: Enforces declarative safety constraints (`immutable`, `no_delete`, `min_value`, `max_value`, `no_decrease`, `no_increase`, `max_delta`, `pattern_match`, `allowed_values`).
+- **Mathematical Safety Metrics & Confidence Intervals**: Computes empirical **Constraint-Violation Rate (CVR)**, **Safe Success Rate (SSR)**, **Unintended State Mutation Rate (USMR)**, and 95% Wilson score confidence bounds.
+- **Active Browser & Ecosystem Adapters**: Drop-in active page and network route interception for Playwright (async & sync), Anthropic Computer Use, and OpenAI tool calling.
 - **Anti-AI-Slop Telemetry Console**: FastAPI developer console adhering to Linear / Datadog developer tool aesthetics with live WebSocket streams and split-pane inspectors.
 
 ---

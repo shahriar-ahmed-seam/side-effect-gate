@@ -84,9 +84,30 @@ Point-in-time canonical representation of monitored environments.
     "mutation_type": { "type": "string", "enum": ["added", "modified", "deleted"] },
     "old_value": {},
     "new_value": {},
+    "numeric_delta": { "type": ["number", "null"] },
+    "is_financial": { "type": "boolean" },
     "metadata": { "type": "object" }
   },
   "required": ["domain", "path", "mutation_type"]
+}
+```
+
+### 2.3 StateDelta Aggregates
+
+```json
+{
+  "title": "StateDelta",
+  "type": "object",
+  "properties": {
+    "delta_id": { "type": "string" },
+    "pre_snapshot_id": { "type": "string" },
+    "post_snapshot_id": { "type": "string" },
+    "mutations": { "type": "array", "items": { "$ref": "#/properties/StateMutation" } },
+    "total_mutations": { "type": "integer" },
+    "financial_impact": { "type": "number" },
+    "domain_breakdown": { "type": "object" },
+    "checksum": { "type": "string" }
+  }
 }
 ```
 
@@ -102,6 +123,9 @@ System invariants define constraints that must NOT be violated.
 - `no_delete`: Target path must not experience deletion mutations.
 - `min_value`: Observed numerical value on path must satisfy $v \ge \text{threshold}$.
 - `max_value`: Observed numerical value on path must satisfy $v \le \text{threshold}$.
+- `no_decrease`: Numerical delta on path must satisfy $\Delta v \ge 0$ (monotonic non-decreasing).
+- `no_increase`: Numerical delta on path must satisfy $\Delta v \le 0$ (monotonic non-increasing).
+- `max_delta`: Absolute numerical variation on path must satisfy $|\Delta v| \le \text{threshold}$.
 - `pattern_match`: String value on path must match regular expression pattern.
 - `allowed_values`: Value on path must belong to finite set $V_{\text{allowed}}$.
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sidegate"
-version = "0.1.0"
+version = "0.2.0"
 description = "Dual-Layer State-Diff Verification & Multi-Tier Irreversible Action Gating Engine for Computer-Use Agents"
 readme = "README.md"
 requires-python = ">=3.10"
